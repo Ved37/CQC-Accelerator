@@ -1,0 +1,36 @@
+@startuml
+actor User
+
+participant GUIInterface
+participant CoreCQCEngine
+participant VisualOptimizer
+
+User -> GUIInterface: Formulate Query
+GUIInterface -> CoreCQCEngine: Process Query
+CoreCQCEngine -> CoreCQCEngine: Preprocess Query Structure
+CoreCQCEngine -> CoreCQCEngine: Reduce Comparisons
+CoreCQCEngine -> CoreCQCEngine: Enumerate Results
+CoreCQCEngine -> VisualOptimizer: Send Query Structure Data
+VisualOptimizer -> VisualOptimizer: Generate Join Trees
+VisualOptimizer -> VisualOptimizer: Highlight Comparisons
+VisualOptimizer -> GUIInterface: Return Visual Representation
+CoreCQCEngine -> GUIInterface: Return Query Results
+GUIInterface -> User: Display Results and Visuals
+
+note right of User
+  The user interacts with the system through the GUI to build and execute queries.
+end note
+
+note right of GUIInterface
+  Serves as the interface between the user and the core system components.
+end note
+
+note right of CoreCQCEngine
+  Handles the core processing of the query, including optimization and execution.
+end note
+
+note right of VisualOptimizer
+  Generates visual representations of query structures for user understanding.
+end note
+
+@enduml

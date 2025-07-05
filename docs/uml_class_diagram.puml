@@ -1,0 +1,64 @@
+@startuml
+class CoreCQCEngine {
+  -preprocessQuery()
+  -reduceComparisons()
+  -enumerateResults()
+}
+
+class VisualOptimizer {
+  -renderJoinTrees()
+  -highlightComparisons()
+}
+
+class GUIInterface {
+  -buildQuery()
+  -displayResults()
+}
+
+class MLFeatureExtractor {
+  -convertToFeatures()
+  -integrateWithMLModels()
+}
+
+class GraphPatternMatcher {
+  -encodePatterns()
+  -runOnGraphData()
+}
+
+class BenchmarkingSuite {
+  -runCQCTests()
+  -runSQLTests()
+  -generateReports()
+}
+
+CoreCQCEngine --> VisualOptimizer : provides query data
+CoreCQCEngine --> GUIInterface : executes queries
+CoreCQCEngine --> MLFeatureExtractor : supplies query outputs
+CoreCQCEngine --> GraphPatternMatcher : supports pattern queries
+CoreCQCEngine --> BenchmarkingSuite : provides performance data
+
+note bottom of CoreCQCEngine
+  Central component responsible for query processing and optimization.
+end note
+
+note bottom of VisualOptimizer
+  Depends on CoreCQCEngine for query structure to visualize.
+end note
+
+note bottom of GUIInterface
+  User interface to interact with CoreCQCEngine for query formulation and execution.
+end note
+
+note bottom of MLFeatureExtractor
+  Uses query results from CoreCQCEngine for machine learning applications.
+end note
+
+note bottom of GraphPatternMatcher
+  Leverages CoreCQCEngine to run CQCs on graph data.
+end note
+
+note bottom of BenchmarkingSuite
+  Evaluates performance of CoreCQCEngine against traditional systems.
+end note
+
+@enduml

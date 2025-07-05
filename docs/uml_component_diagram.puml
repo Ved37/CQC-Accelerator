@@ -1,0 +1,53 @@
+@startuml
+package "CQC-Accelerator System" {
+  component [Core CQC Engine] as Core
+  component [Visual Optimizer] as Visual
+  component [GUI Interface] as GUI
+  component [ML Feature Extractor] as ML
+  component [Graph Pattern Matcher] as Graph
+  component [Benchmarking Suite] as Bench
+
+  interface "Query Input/Output" as QIO
+  interface "Visualization Data" as VD
+  interface "Feature Data" as FD
+  interface "Graph Query" as GQ
+  interface "Performance Data" as PD
+
+  Core - QIO
+  Core - VD
+  Core - FD
+  Core - GQ
+  Core - PD
+
+  GUI --> QIO : uses
+  Visual --> VD : uses
+  ML --> FD : uses
+  Graph --> GQ : uses
+  Bench --> PD : uses
+}
+
+note bottom of Core
+  Central component providing core query processing capabilities to all other modules.
+end note
+
+note bottom of GUI
+  User-facing component for query formulation and result display.
+end note
+
+note bottom of Visual
+  Handles visualization of query structures based on data from Core.
+end note
+
+note bottom of ML
+  Extracts features from query outputs for machine learning applications.
+end note
+
+note bottom of Graph
+  Processes graph patterns using CQC capabilities from Core.
+end note
+
+note bottom of Bench
+  Evaluates system performance using data from Core.
+end note
+
+@enduml

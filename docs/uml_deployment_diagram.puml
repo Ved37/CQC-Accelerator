@@ -1,0 +1,24 @@
+@startuml
+node "Local Development Environment" {
+  artifact "CQC-Accelerator App" as LocalApp
+  database "SQLite DB" as LocalDB
+
+  LocalApp --> LocalDB : uses for testing
+}
+
+node "Scalable Environment" {
+  artifact "CQC-Accelerator App" as ScaleApp
+  database "Spark Cluster" as SparkDB
+
+  ScaleApp --> SparkDB : uses for large datasets
+}
+
+note right of "Local Development Environment"
+  Initial setup for development and testing with lightweight SQLite database.
+end note
+
+note right of "Scalable Environment"
+  Advanced deployment for handling larger datasets using Spark for distributed processing.
+end note
+
+@enduml
