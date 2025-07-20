@@ -1,108 +1,107 @@
+# gui_interface/app.py
+# --- HEAVILY MODIFIED ---
+# This version integrates the full benchmarking suite into the sidebar.
+
 import streamlit as st
 import pandas as pd
-import os
-import ast
 from core_engine.simple_cqc import SimpleCQC
+from core_engine.parser import parse_query_from_string
+from benchmarking_suite.benchmark_cqc import benchmark_cqc
+from benchmarking_suite.benchmark_sql import benchmark_sql
+from benchmarking_suite.helpers import generate_sql_equivalent_query
+from benchmarking_suite.visualize import plot_benchmark_results
 
-st.set_page_config(page_title="CQC-Accelerator", layout="wide")
-st.title("🚀 CQC-Accelerator")
+st.set_page_config(layout="wide")
+st.title("📊 CQC-Accelerator")
+st.caption("An Interactive Framework for Conjunctive Queries with Comparisons")
 
-uploaded_files = st.file_uploader("Upload CSV files", accept_multiple_files=True, type=["csv"])
-tables = {}
+# --- Sidebar for File Upload and Benchmarking ---
+with st.sidebar:
+    st.header("Setup")
+    uploaded_files = st.file_uploader(
+        "Upload your CSV datasets here",
+        type=["csv"],
+        accept_multiple_files=True
+    )
+    st.header("Benchmarking")
+    run_benchmark_option = st.checkbox("Compare CQC vs. SQL Performance")
+    st.info("If checked, a performance benchmark will run for the query and a comparison chart will be displayed.")
 
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        df = pd.read_csv(uploaded_file)
-        table_name = os.path.splitext(uploaded_file.name)[0]
-        tables[table_name] = df
 
-    st.success("Tables loaded: " + ", ".join(tables.keys()))
-    prepared_tables = SimpleCQC.prepare_tables(tables)
-    engine = SimpleCQC(prepared_tables)
-
-    st.header("🧩 Define Query")
-    table_names = list(tables.keys())
-
-    join_order = st.multiselect("Join Order", options=table_names, default=table_names)
-    join_conditions = []
-
-    st.subheader("🔗 Join Conditions")
-    for i in range(len(join_order) - 1):
-        t1 = join_order[i]
-        t2 = join_order[i + 1]
-        c1 = st.selectbox(f"{t1} column", tables[t1].columns, key=f"{t1}_{i}")
-        c2 = st.selectbox(f"{t2} column", tables[t2].columns, key=f"{t2}_{i}")
-        join_conditions.append((t1, c1, t2, c2))
-
-    st.subheader("⚖️ Compare Conditions")
-
-    # Initialize session state for compare_conditions list
-    if "compare_conditions" not in st.session_state:
-        st.session_state.compare_conditions = []
-
-    if st.button("Add Comparison Condition"):
-        st.session_state.compare_conditions.append({
-            "table": table_names[0] if table_names else None,
-            "column": tables[table_names[0]].columns[0] if table_names else None,
-            "operator": "=",
-            "value": ""
-        })
-
-    remove_indices = []
-    for i, cond in enumerate(st.session_state.compare_conditions):
-        st.markdown(f"### Condition #{i+1}")
-        table = st.selectbox(f"Table {i+1}", table_names, index=table_names.index(cond["table"]) if cond["table"] in table_names else 0, key=f"table_{i}")
-        columns = tables[table].columns if table else []
-        column = st.selectbox(f"Column {i+1}", columns, index=columns.get_loc(cond["column"]) if cond["column"] in columns else 0 if columns else 0, key=f"col_{i}")
-        operator = st.selectbox(f"Operator {i+1}", ["=", "!=", "<", "<=", ">", ">=", "IN", "NOT IN", "LIKE", "IS NULL"], index=["=", "!=", "<", "<=", ">", ">=", "IN", "NOT IN", "LIKE", "IS NULL"].index(cond["operator"]) if cond["operator"] else 0, key=f"op_{i}")
-
-        val = None
-        if operator != "IS NULL":
-            val_input = st.text_input(f"Value {i+1}", value=cond["value"], key=f"val_{i}")
-            val = val_input
-
-        # Update the condition in session state
-        st.session_state.compare_conditions[i] = {
-            "table": table,
-            "column": column,
-            "operator": operator,
-            "value": val if val is not None else ""
-        }
-
-        if st.button(f"Remove Condition {i+1}"):
-            remove_indices.append(i)
-
-    # Remove conditions after the loop to avoid index shifting issues
-    for idx in sorted(remove_indices, reverse=True):
-        st.session_state.compare_conditions.pop(idx)
-        st.experimental_rerun()
-
-    # Convert session_state conditions to the engine format
-    compare_conditions = []
-    for cond in st.session_state.compare_conditions:
-        val_raw = cond["value"]
-        op = cond["operator"]
-
-        try:
-            val = ast.literal_eval(val_raw) if val_raw else None
-        except:
-            val = val_raw
-
-        if op == "IS NULL":
-            compare_conditions.append((cond["table"], cond["column"], op, None, "AND"))
-        else:
-            if op in ["IN", "NOT IN"] and isinstance(val, str):
-                val = [v.strip() for v in val.split(",")]
-            compare_conditions.append((cond["table"], cond["column"], op, val, "AND"))
-
-    if st.button("Run Query"):
-        try:
-            result = engine.run_query(join_order, join_conditions, compare_conditions)
-            st.dataframe(result)
-        except Exception as e:
-            st.error(f"Error: {e}")
-
+# --- Main Application Logic ---
+if not uploaded_files:
+    st.info("Upload one or more CSV files using the sidebar to begin.")
 else:
-    st.info("Upload at least one CSV file to begin.")
+    tables = {}
+    for uploaded_file in uploaded_files:
+        try:
+            df = pd.read_csv(uploaded_file)
+            table_name = uploaded_file.name.split(".")[0].lower()
+            tables[table_name] = df
+        except Exception as e:
+            st.error(f"Failed to load {uploaded_file.name}: {e}")
+    
+    st.success(f"Loaded tables: {', '.join(tables.keys())}")
+    st.markdown("---")
 
-st.sidebar.markdown("**Tip:** Uploaded data is not saved after session ends.")
+    # Query Input Area
+    # --- FIX: Corrected the default query to use a column that exists ("First Name") ---
+    default_query = """SELECT customers."First Name", organizations.Industry
+FROM customers JOIN organizations ON customers.Company = organizations.Name
+WHERE customers.Country = 'Canada'"""
+    query_input = st.text_area("Write your CQC-style query here:", value=default_query, height=150)
+
+    if st.button("⚡ Run Query"):
+        if not query_input.strip():
+            st.warning("Please enter a query.")
+        else:
+            try:
+                # --- 1. Parse the CQC query ---
+                parsed_query = parse_query_from_string(query_input)
+                
+                # --- 2. Run the CQC Engine to get the main result ---
+                st.subheader("✅ CQC Query Result")
+                prepared_tables = SimpleCQC.prepare_tables(tables)
+                engine = SimpleCQC(prepared_tables)
+                result_df = engine.run_query(
+                    parsed_query["join_order"],
+                    parsed_query["join_conditions"],
+                    parsed_query["compare_conditions"]
+                )
+                
+                # Select final columns if specified
+                # In the "Run Query" block, update the column selection
+                if parsed_query["select_cols"]:
+                    final_cols = [f"{col.split('.')[0].lower()}_{col.split('.')[1].replace(' ', '_')}" for col in parsed_query["select_cols"]]
+                    existing_cols = [c for c in final_cols if c in result_df.columns]
+                    result_df = result_df[existing_cols]
+                
+                st.dataframe(result_df)
+
+                # --- 3. Run Benchmark if the user selected the option ---
+                if run_benchmark_option:
+                    st.markdown("---")
+                    st.subheader("⏱️ Performance Benchmark Results")
+                    with st.spinner("Running CQC and SQL benchmarks..."):
+                        # Generate the SQL equivalent for comparison
+                        sql_query = generate_sql_equivalent_query(parsed_query, parsed_query["select_cols"])
+                        st.code(f"Generated SQL for comparison:\n{sql_query}", language="sql")
+
+                        # Run both benchmarks
+                        cqc_metrics = benchmark_cqc(tables, parsed_query)
+                        sql_metrics = benchmark_sql(tables, sql_query)
+                        
+                        # --- MODIFICATION: Display detailed metrics in a table ---
+                        st.write("#### Benchmark Metrics")
+                        benchmark_df = pd.DataFrame([cqc_metrics, sql_metrics])
+                        benchmark_df = benchmark_df.set_index('query_expr')
+                        st.dataframe(benchmark_df)
+                        
+                        # --- MODIFICATION: Plot the results ---
+                        st.write("#### Performance Charts")
+                        fig = plot_benchmark_results([cqc_metrics, sql_metrics])
+                        st.pyplot(fig)
+
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+                st.exception(e)

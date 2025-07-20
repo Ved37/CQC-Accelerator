@@ -17,7 +17,7 @@ class SimpleCQC:
         tables = {}
         for tname, df in raw_tables.items():
             df = df.copy()
-            df.columns = [f"{tname}_{col}" for col in df.columns]
+            df.columns = [f"{tname}_{col.replace(' ', '_')}" for col in df.columns]
             tables[tname] = df
         return tables
 
@@ -29,10 +29,12 @@ class SimpleCQC:
             cond = [c for c in join_conditions if (c[0], c[2]) == (left, right) or (c[2], c[0]) == (left, right)]
             if cond:
                 c = cond[0]
+                c1_sanitized = c[1].replace(' ', '_')
+                c3_sanitized = c[3].replace(' ', '_')
                 if c[0] == left:
-                    df = df.merge(self.tables[right], left_on=f"{left}_{c[1]}", right_on=f"{right}_{c[3]}")
+                    df = df.merge(self.tables[right], left_on=f"{left}_{c1_sanitized}", right_on=f"{right}_{c3_sanitized}")
                 else:
-                    df = df.merge(self.tables[right], left_on=f"{left}_{c[3]}", right_on=f"{right}_{c[1]}")
+                    df = df.merge(self.tables[right], left_on=f"{left}_{c3_sanitized}", right_on=f"{right}_{c1_sanitized}")
             else:
                 df = df.merge(self.tables[right], how='cross')
 
@@ -40,7 +42,8 @@ class SimpleCQC:
         for comp in compare_conditions:
             if len(comp) == 5:
                 t1, col1, op, val, logic = comp
-                left_col = f"{t1}_{col1}"
+                col1_sanitized = col1.replace(' ', '_')
+                left_col = f"{t1}_{col1_sanitized}"
 
                 # Fix operator for equality
                 if op == "=":
@@ -49,10 +52,8 @@ class SimpleCQC:
                 if op == "IS NULL":
                     df = df[df[left_col].isnull()]
                 elif op == "LIKE":
-                    # Use pandas str.contains (case insensitive)
                     df = df[df[left_col].astype(str).str.contains(str(val), case=False, na=False)]
                 elif op in ["IN", "NOT IN"]:
-                    # val must be list or tuple
                     if not isinstance(val, (list, tuple, set)):
                         raise ValueError(f"Value for operator '{op}' must be a list, tuple or set")
                     if op == "IN":
@@ -60,14 +61,14 @@ class SimpleCQC:
                     else:  # NOT IN
                         df = df[~df[left_col].isin(val)]
                 else:
-                    # For other ops like <, <=, >, >=, ==, !=
-                    # Safely build a boolean mask
-                    try:
-                        expr = f"`{left_col}` {op} @val"
-                        df = df.query(expr, engine="python")
-                    except Exception as e:
-                        raise ValueError(f"Error applying filter: {expr} with val={val}\n{e}")
-
+                    if op == '<': df = df[df[left_col] < val]
+                    elif op == '<=': df = df[df[left_col] <= val]
+                    elif op == '>': df = df[df[left_col] > val]
+                    elif op == '>=': df = df[df[left_col] >= val]
+                    elif op == '==': df = df[df[left_col] == val]
+                    elif op == '!=': df = df[df[left_col] != val]
+                    else:
+                        raise ValueError(f"Unsupported operator: {op}")
             else:
                 raise ValueError("Invalid compare_conditions tuple length. Expected 5 elements.")
 
