@@ -196,7 +196,7 @@ if st.button("Run Query", type="primary"):
                         else:
                             st.metric("Execution Time", f"{cq_metrics['execution_time_seconds']:.4f}s")
                             st.metric("Memory Peak", f"{cq_metrics['memory_peak_bytes'] / 1024 / 1024:.2f} MB")
-                            st.metric("Result Rows", cq_metrics['result_rows'])
+                            
                     with col2:
                         st.write("**SQLite Results:**")
                         if sql_metrics.get("error"):
@@ -204,7 +204,7 @@ if st.button("Run Query", type="primary"):
                         else:
                             st.metric("Execution Time", f"{sql_metrics['execution_time_seconds']:.4f}s")
                             st.metric("Memory Peak", f"{sql_metrics['memory_peak_bytes'] / 1024 / 1024:.2f} MB")
-                            st.metric("Result Rows", sql_metrics['result_rows'])
+                            
                     benchmark_df = pd.DataFrame([cq_metrics, sql_metrics])
                     benchmark_df = benchmark_df.set_index('query_expr')
                     st.write("**Detailed Comparison:**")

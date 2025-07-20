@@ -28,7 +28,7 @@ def benchmark_cq(tables: dict, query_parts: dict):
         tracemalloc.stop()
         
         # Calculate metrics
-        result_rows = df_result.shape[0] if df_result is not None else 0
+        #result_rows = df_result.shape[0] if df_result is not None else 0
         result_cols = df_result.shape[1] if df_result is not None else 0
         
         return {
