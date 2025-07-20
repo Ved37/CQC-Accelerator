@@ -9,11 +9,19 @@ from benchmarking_suite.visualize import plot_benchmark_results
 import os
 import re
 
+# --- Try to import ML Feature Extractor ---
+try:
+    from ml_feature_extractor.extractor import extract_features
+    ML_EXTRACTOR_AVAILABLE = True
+except Exception as e:
+    ML_EXTRACTOR_AVAILABLE = False
+    ML_EXTRACTOR_ERROR = str(e)
+
 st.set_page_config(layout="wide")
 st.title("📊 SimpleCQ Explorer")
 st.caption("Interactive Conjunctive Query Benchmarking")
 
-# --- Sidebar for File Upload and Benchmarking ---
+# --- Sidebar for File Upload, Benchmarking, Table Selection ---
 with st.sidebar:
     st.header("Setup")
     uploaded_files = st.file_uploader(
@@ -24,6 +32,19 @@ with st.sidebar:
     st.header("Benchmarking")
     run_benchmark_option = st.checkbox("Compare SimpleCQ vs. SQLite Performance")
     st.info("If checked, a performance benchmark will run for the query and a comparison chart will be displayed.")
+
+    # --- Table Selector for ML Feature Extraction ---
+    st.header("ML Feature Extraction Table Selection")
+    table_names = []
+    # This will be populated once tables are loaded
+    if "tables" in st.session_state:
+        table_names = list(st.session_state["tables"].keys())
+    selected_table = st.selectbox(
+        "Select Table for Feature Extraction",
+        options=table_names if table_names else ["(No tables loaded)"],
+        index=0 if table_names else None,
+        key="ml_selected_table"
+    )
 
 # --- Main Application Logic ---
 if not uploaded_files:
@@ -48,6 +69,9 @@ for uploaded_file in uploaded_files:
     except Exception as e:
         st.error(f"❌ Failed to load {uploaded_file.name}: {e}")
         st.stop()
+
+# Save loaded tables for sidebar ML extractor
+st.session_state["tables"] = tables
 
 # Display table information
 st.header("📋 Loaded Tables")
@@ -104,32 +128,25 @@ if st.button("⚡ Run Query", type="primary"):
         st.warning("Please enter a query.")
     else:
         try:
-            # Parse the query
             with st.spinner("Parsing query..."):
                 parsed_query = parse_query_from_string(query_input)
             
-            # Debug information
             with st.expander("🔧 Debug Information"):
                 st.write("**Parsed Query Structure:**")
                 st.json(parsed_query)
-                
-                # Show table column mapping
                 st.write("**Available Table Columns:**")
                 for table_name, df in tables.items():
                     st.write(f"- **{table_name}:** {list(df.columns)}")
 
-            # Validate that referenced tables exist
             missing_tables = []
             for table in parsed_query.get("join_order", []):
                 if table not in tables:
                     missing_tables.append(table)
-            
             if missing_tables:
                 st.error(f"Referenced tables not found: {', '.join(missing_tables)}")
                 st.info(f"Available tables: {', '.join(tables.keys())}")
                 st.stop()
 
-            # Run the SimpleCQ Engine
             st.subheader("✅ SimpleCQ Query Result")
             with st.spinner("Executing SimpleCQ query..."):
                 prepared_tables = SimpleCQ.prepare_tables(tables)
@@ -148,12 +165,9 @@ if st.button("⚡ Run Query", type="primary"):
                     having_conditions=parsed_query.get("having_conditions")
                 )
 
-            # Display results
             st.write(f"**Query returned {len(result_df)} rows**")
             if len(result_df) > 0:
                 st.dataframe(result_df)
-                
-                # Download option
                 csv = result_df.to_csv(index=False)
                 st.download_button(
                     label="Download results as CSV",
@@ -164,25 +178,17 @@ if st.button("⚡ Run Query", type="primary"):
             else:
                 st.info("Query returned no results.")
 
-            # Run Benchmark if selected
             if run_benchmark_option:
                 st.markdown("---")
                 st.subheader("⏱️ Performance Benchmark Results")
-                
                 try:
                     with st.spinner("Running benchmarks..."):
-                        # Generate SQL query
                         sql_query = generate_sql_equivalent_query(parsed_query, parsed_query.get("select_cols"))
                         st.write("**Generated SQLite Query:**")
                         st.code(sql_query, language="sql")
-                        
-                        # Run benchmarks
                         cq_metrics = benchmark_cq(tables, parsed_query)
                         sql_metrics = benchmark_sql(tables, sql_query)
-                        
-                    # Display results
                     col1, col2 = st.columns(2)
-                    
                     with col1:
                         st.write("**SimpleCQ Results:**")
                         if cq_metrics.get("error"):
@@ -190,7 +196,7 @@ if st.button("⚡ Run Query", type="primary"):
                         else:
                             st.metric("Execution Time", f"{cq_metrics['execution_time_seconds']:.4f}s")
                             st.metric("Memory Peak", f"{cq_metrics['memory_peak_bytes'] / 1024 / 1024:.2f} MB")
-                    
+                            st.metric("Result Rows", cq_metrics['result_rows'])
                     with col2:
                         st.write("**SQLite Results:**")
                         if sql_metrics.get("error"):
@@ -198,34 +204,60 @@ if st.button("⚡ Run Query", type="primary"):
                         else:
                             st.metric("Execution Time", f"{sql_metrics['execution_time_seconds']:.4f}s")
                             st.metric("Memory Peak", f"{sql_metrics['memory_peak_bytes'] / 1024 / 1024:.2f} MB")
-                    
-                    # Create comparison table
+                            st.metric("Result Rows", sql_metrics['result_rows'])
                     benchmark_df = pd.DataFrame([cq_metrics, sql_metrics])
                     benchmark_df = benchmark_df.set_index('query_expr')
-                    
                     st.write("**Detailed Comparison:**")
                     st.dataframe(benchmark_df)
-                    
-                    # Plot results if no errors
                     if not cq_metrics.get("error") and not sql_metrics.get("error"):
                         st.write("**Performance Charts:**")
                         fig = plot_benchmark_results([cq_metrics, sql_metrics])
                         if fig:
                             st.pyplot(fig)
-                
                 except Exception as benchmark_error:
                     st.error(f"Benchmark error: {benchmark_error}")
                     with st.expander("🐛 Benchmark Error Details"):
                         import traceback
                         st.code(traceback.format_exc())
-
         except Exception as e:
             st.error(f"An error occurred: {e}")
             with st.expander("🐛 Error Details"):
                 import traceback
                 st.code(traceback.format_exc())
 
-# Help section
+# --- ML Feature Extractor Main Section ---
+st.header("🧬 ML Feature Extractor")
+if ML_EXTRACTOR_AVAILABLE:
+    if selected_table and selected_table != "(No tables loaded)":
+        if selected_table in tables:
+            df_preview = tables[selected_table]
+            st.write(f"**Columns in `{selected_table}`:**")
+            st.write(list(df_preview.columns))
+            st.dataframe(df_preview.head(5))
+            if st.button("Extract ML Features", key="extract_ml_features_main"):
+                try:
+                    st.info("Running ML feature extraction...")
+                    features_df = extract_features(df_preview)
+                    st.success("Feature extraction complete!")
+                    st.dataframe(features_df.head(10))
+                    csv_features = features_df.to_csv(index=False)
+                    st.download_button(
+                        label="Download Extracted Features as CSV",
+                        data=csv_features,
+                        file_name=f"{selected_table}_ml_features.csv",
+                        mime="text/csv"
+                    )
+                except Exception as e:
+                    st.error(f"Feature extraction failed: {e}")
+        else:
+            st.warning("Table not loaded yet. Please load data first.")
+    else:
+        st.info("Select a table in the sidebar to use the ML feature extractor.")
+else:
+    st.warning("ML Feature Extractor not available. Check ml_feature_extractor folder.")
+    if "ML_EXTRACTOR_ERROR" in locals():
+        st.caption(f"Import error: {ML_EXTRACTOR_ERROR}")
+
 with st.expander("❓ Help & Query Examples"):
     st.markdown("""
     ### Query Format
@@ -251,4 +283,5 @@ with st.expander("❓ Help & Query Examples"):
     - **Limits:** LIMIT and OFFSET
     - **Aliases:** Limited support for table/column aliases
     - **Column names with spaces**
+    - **ML Feature Extraction:** Select a table in the sidebar, then extract features in the main area.
     """)
