@@ -1,5 +1,5 @@
 import pandas as pd
-from simple_cqc import SimpleCQC
+from core_engine.simple_cqc import SimpleCQC
 
 # Toy data setup
 A = pd.DataFrame({
