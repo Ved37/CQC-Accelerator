@@ -35,7 +35,7 @@ def benchmark_sql(tables: dict, sql_query: str):
             "query_expr": "SQLite Query",
             "execution_time_seconds": end_time - start_time,
             "memory_peak_bytes": peak,
-            "result_rows": len(df_result),
+            #"result_rows": len(df_result),
             "result_columns": len(df_result.columns),
             "error": None
         }
@@ -56,7 +56,7 @@ def benchmark_sql(tables: dict, sql_query: str):
             "query_expr": "SQLite Query",
             "execution_time_seconds": 0,
             "memory_peak_bytes": 0,
-            "result_rows": 0,
+            #"result_rows": 0,
             "result_columns": 0,
             "error": str(e)
         }

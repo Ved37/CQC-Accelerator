@@ -35,7 +35,7 @@ def benchmark_cq(tables: dict, query_parts: dict):
             'query_expr': "SimpleCQ Query",
             'execution_time_seconds': end_time - start_time,
             'memory_peak_bytes': peak,
-            'result_rows': result_rows,
+            #'result_rows': result_rows,
             'result_columns': result_cols,
             'error': None
         }
@@ -55,7 +55,6 @@ def benchmark_cq(tables: dict, query_parts: dict):
             'query_expr': "SimpleCQ Query",
             'execution_time_seconds': 0,
             'memory_peak_bytes': 0,
-            'result_rows': 0,
             'result_columns': 0,
             'error': str(e)
         }
