@@ -18,8 +18,8 @@ except Exception as e:
     ML_EXTRACTOR_ERROR = str(e)
 
 st.set_page_config(layout="wide")
-st.title("📊 SimpleCQ Explorer")
-st.caption("Interactive Conjunctive Query Benchmarking")
+st.title("SimpleCQ Explorer")
+st.caption("Interactive Conjunctive Query Benchmarking and ML Feature Extraction")
 
 # --- Sidebar for File Upload, Benchmarking, Table Selection ---
 with st.sidebar:
@@ -65,16 +65,16 @@ for uploaded_file in uploaded_files:
             'columns': list(df.columns),
             'file_name': uploaded_file.name
         }
-        st.success(f"✅ Loaded {table_name}: {len(df)} rows, {len(df.columns)} columns")
+        st.success(f"Loaded {table_name}: {len(df)} rows, {len(df.columns)} columns")
     except Exception as e:
-        st.error(f"❌ Failed to load {uploaded_file.name}: {e}")
+        st.error(f"Failed to load {uploaded_file.name}: {e}")
         st.stop()
 
 # Save loaded tables for sidebar ML extractor
 st.session_state["tables"] = tables
 
 # Display table information
-st.header("📋 Loaded Tables")
+st.header("Loaded Tables")
 for table_name, info in table_info.items():
     with st.expander(f"Table: {table_name} ({info['rows']} rows)"):
         st.write("**Columns:**", ", ".join(info['columns']))
@@ -83,7 +83,7 @@ for table_name, info in table_info.items():
 st.markdown("---")
 
 # Dynamic query suggestions based on loaded tables
-st.header("🔍 Query Interface")
+st.header("Query Interface")
 
 # Generate sample queries based on available tables
 sample_queries = []
@@ -123,7 +123,7 @@ else:
 query_input = st.text_area("Write your SQL-like conjunctive query here:", 
                           value=default_query, height=150)
 
-if st.button("⚡ Run Query", type="primary"):
+if st.button("Run Query", type="primary"):
     if not query_input.strip():
         st.warning("Please enter a query.")
     else:
@@ -131,7 +131,7 @@ if st.button("⚡ Run Query", type="primary"):
             with st.spinner("Parsing query..."):
                 parsed_query = parse_query_from_string(query_input)
             
-            with st.expander("🔧 Debug Information"):
+            with st.expander("Debug Information"):
                 st.write("**Parsed Query Structure:**")
                 st.json(parsed_query)
                 st.write("**Available Table Columns:**")
@@ -147,7 +147,7 @@ if st.button("⚡ Run Query", type="primary"):
                 st.info(f"Available tables: {', '.join(tables.keys())}")
                 st.stop()
 
-            st.subheader("✅ SimpleCQ Query Result")
+            st.subheader("SimpleCQ Query Result")
             with st.spinner("Executing SimpleCQ query..."):
                 prepared_tables = SimpleCQ.prepare_tables(tables)
                 engine = SimpleCQ(prepared_tables)
@@ -180,7 +180,7 @@ if st.button("⚡ Run Query", type="primary"):
 
             if run_benchmark_option:
                 st.markdown("---")
-                st.subheader("⏱️ Performance Benchmark Results")
+                st.subheader("Performance Benchmark Results")
                 try:
                     with st.spinner("Running benchmarks..."):
                         sql_query = generate_sql_equivalent_query(parsed_query, parsed_query.get("select_cols"))
@@ -216,17 +216,17 @@ if st.button("⚡ Run Query", type="primary"):
                             st.pyplot(fig)
                 except Exception as benchmark_error:
                     st.error(f"Benchmark error: {benchmark_error}")
-                    with st.expander("🐛 Benchmark Error Details"):
+                    with st.expander("Benchmark Error Details"):
                         import traceback
                         st.code(traceback.format_exc())
         except Exception as e:
             st.error(f"An error occurred: {e}")
-            with st.expander("🐛 Error Details"):
+            with st.expander("Error Details"):
                 import traceback
                 st.code(traceback.format_exc())
 
 # --- ML Feature Extractor Main Section ---
-st.header("🧬 ML Feature Extractor")
+st.header("ML Feature Extractor")
 if ML_EXTRACTOR_AVAILABLE:
     if selected_table and selected_table != "(No tables loaded)":
         if selected_table in tables:
@@ -258,30 +258,3 @@ else:
     if "ML_EXTRACTOR_ERROR" in locals():
         st.caption(f"Import error: {ML_EXTRACTOR_ERROR}")
 
-with st.expander("❓ Help & Query Examples"):
-    st.markdown("""
-    ### Query Format
-    Your queries should follow this pattern:
-    ```sql
-    SELECT [DISTINCT] col1, col2, COUNT(col3) AS cnt
-    FROM table1
-    JOIN table2 ON table1.key = table2.key
-    WHERE table1.column > value AND table2.column < value2
-    GROUP BY col1, col2
-    HAVING cnt > 5
-    ORDER BY col1 ASC, col2 DESC
-    LIMIT 10 OFFSET 5
-    ```
-    ### Supported Operations
-    - **Joins:** INNER JOIN with ON conditions
-    - **Filters:** =, !=, <, <=, >, >=, LIKE, IS NULL, IN, NOT IN
-    - **Logic:** AND/OR operations between WHERE/HAVING conditions
-    - **Ordering:** ORDER BY multiple columns (ASC/DESC)
-    - **Distinct:** SELECT DISTINCT
-    - **Grouping:** GROUP BY columns and HAVING for aggregates
-    - **Aggregates:** COUNT, SUM, AVG, MIN, MAX
-    - **Limits:** LIMIT and OFFSET
-    - **Aliases:** Limited support for table/column aliases
-    - **Column names with spaces**
-    - **ML Feature Extraction:** Select a table in the sidebar, then extract features in the main area.
-    """)
