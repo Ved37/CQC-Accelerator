@@ -18,7 +18,7 @@ except Exception as e:
     ML_EXTRACTOR_ERROR = str(e)
 
 st.set_page_config(layout="wide")
-st.title("SimpleCQ Explorer")
+st.title("CQC-Accelerator")
 st.caption("Interactive Conjunctive Query Benchmarking and ML Feature Extraction")
 
 # --- Sidebar for File Upload, Benchmarking, Table Selection ---
